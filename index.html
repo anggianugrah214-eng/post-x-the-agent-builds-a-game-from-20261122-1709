@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Catch — a tiny browser game built from one prompt</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #070a14; height: 100%; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #e8eaf6; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 0.04em; }
+  p { margin: 0 0 14px; color: #8b93b8; font-size: 14px; }
+  canvas { border-radius: 12px; box-shadow: 0 0 60px rgba(255, 45, 149, 0.25); max-width: 96vw; }
+  .keys { margin-top: 12px; font-size: 13px; color: #8b93b8; }
+  .keys b { color: #e8eaf6; }
+</style>
+</head>
+<body>
+<h1>⭐ STAR CATCH</h1>
+<p>Built from one prompt by an AI agent. Catch the falling stars.</p>
+<canvas id="game" width="960" height="540"></canvas>
+<div class="keys"><b>← →</b> or <b>A / D</b> to move &nbsp;·&nbsp; mouse works too &nbsp;·&nbsp; <b>R</b> to restart</div>
+<script type="module">
+import { createGame } from './game.js';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const game = createGame(960, 540);
+
+// The browser adapter: the same tiny draw interface the game renders through.
+function starPath(cx, cy, r, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 === 0 ? r : r * 0.45;
+    const a = rot + (i * Math.PI) / 5 - Math.PI / 2;
+    const x = cx + Math.cos(a) * rr;
+    const y = cy + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+const g = {
+  rect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); },
+  circle(x, y, r, color, alpha = 1) {
+    ctx.globalAlpha = alpha; ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  },
+  poly(pts, color) {
+    ctx.fillStyle = color; ctx.beginPath();
+    pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+    ctx.closePath(); ctx.fill();
+  },
+  rrect(x, y, w, h, rad, color) {
+    ctx.fillStyle = color; ctx.beginPath();
+    ctx.roundRect(x, y, w, h, rad); ctx.fill();
+  },
+  text(str, x, y, size, color, align, weight) {
+    ctx.fillStyle = color;
+    ctx.font = `${weight === 'bold' ? '700' : '400'} ${size}px system-ui, sans-serif`;
+    ctx.textAlign = align; ctx.textBaseline = 'middle';
+    ctx.fillText(str, x, y);
+  },
+};
+
+const keys = { left: false, right: false };
+let mouseX = null;
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+  if ((e.key === 'r' || e.key === 'R') && game.state.over) location.reload();
+});
+addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = ((e.clientX - rect.left) / rect.width) * 960;
+});
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const input = mouseX !== null ? { targetX: mouseX } : keys;
+  game.step(dt, input);
+  game.render(g);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
